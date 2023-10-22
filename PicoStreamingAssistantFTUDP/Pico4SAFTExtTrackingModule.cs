@@ -25,7 +25,7 @@ public sealed class Pico4SAFTExtTrackingModule : ExtTrackingModule, IDisposable
     private PxrFTInfo data;
     private (bool, bool) trackingState = (false, false);
 
-    private const bool FILE_LOG = false;
+    private const bool FILE_LOG = true;
     public static readonly string LOGGER_PATH = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "VRCFaceTracking\\PICOLogs.csv");
     private Logger<PxrFTInfo> logger;
 

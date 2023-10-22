@@ -20,6 +20,7 @@ public sealed class PicoDataLoggerFactory
             for (int n = 0; n < Pxr.BLEND_SHAPE_NUMS; n++) ret->blendShapeWeight[n] = obj->blendShapeWeight[n];
             for (int n = 0; n < 10; n++) ret->videoInputValid[n] = obj->videoInputValid[n];
             for (int n = 0; n < 10; n++) ret->emotionProb[n] = obj->emotionProb[n];
+            for (int n = 0; n < 128; n++) ret->reserved[n] = obj->reserved[n];
         }
 
         public string GetCSVHeader(char delimiter)
@@ -29,6 +30,11 @@ public sealed class PicoDataLoggerFactory
             foreach (BlendShapeIndex shape in Enum.GetValues(typeof(BlendShapeIndex)))
             {
                 sb.Append(Enum.GetName(typeof(BlendShapeIndex), shape));
+                sb.Append(delimiter);
+            }
+            for (int n = 0; n < 128; n++)
+            {
+                sb.Append("reserved[").Append(n).Append("]");
                 sb.Append(delimiter);
             }
 
@@ -43,6 +49,11 @@ public sealed class PicoDataLoggerFactory
             for (int n = 0; n < Pxr.BLEND_SHAPE_NUMS; n++)
             {
                 sb.Append(obj->blendShapeWeight[n]);
+                sb.Append(delimiter);
+            }
+            for (int n = 0; n < 128; n++)
+            {
+                sb.Append(obj->reserved[n]);
                 sb.Append(delimiter);
             }
 
