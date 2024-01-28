@@ -1,5 +1,9 @@
 ﻿using Microsoft.Extensions.Logging;
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.Net;
+using System.Net.Sockets;
+using System.Text;
 
 namespace Pico4SAFTExtTrackingModule.PicoConnectors;
 
@@ -17,33 +21,59 @@ public sealed class PicoConnectConnector : PicoConnector
 
     public bool Connect()
     {
-        Logger.LogInformation("Active Connections");
-        Logger.LogInformation("");
+        //Nullable<int> pico_connect_pid = null;
+        IPEndPoint? pico_connect_target = null;
 
-        Logger.LogInformation(" Proto Local Address Foreign Address State PID");
         foreach (TcpRow tcpRow in ManagedIpHelper.GetExtendedTcpTable(true))
         {
-            Logger.LogInformation(" {0,-7}{1,-23}{2, -23}{3,-14}{4}", "TCP", tcpRow.LocalEndPoint, tcpRow.RemoteEndPoint, tcpRow.State, tcpRow.ProcessId);
+            //Logger.LogInformation(" {0,-7}{1,-23}{2, -23}{3,-14}{4}", "TCP", tcpRow.LocalEndPoint, tcpRow.RemoteEndPoint, tcpRow.State, tcpRow.ProcessId);
 
-            Process process = Process.GetProcessById(tcpRow.ProcessId);
-            if (process.ProcessName != "System")
+            try
             {
-                foreach (ProcessModule processModule in process.Modules)
+                Process process = Process.GetProcessById(tcpRow.ProcessId);
+                if (process.MainModule != null && process.MainModule.FileName.EndsWith("Streaming Service\\ps_server.exe"))
                 {
-                    Logger.LogInformation(" {0}", processModule.FileName);
+                    // found
+                    //pico_connect_pid = tcpRow.ProcessId;
+                    pico_connect_target = tcpRow.LocalEndPoint;
+                    break;
                 }
-
-                Logger.LogInformation(" [{0}]", Path.GetFileName(process.MainModule.FileName));
-            }
-            else
+            } catch (Exception ex)
             {
-                Logger.LogInformation(" -- unknown component(s) --");
-                Logger.LogInformation(" [{0}]", "System");
+                // way too much false-negatives
+                //Logger.LogWarning("{exception}", ex);
             }
-
-            Logger.LogInformation("");
         }
-        return false;
+
+        // succeed?
+        if (/*!pico_connect_pid.HasValue ||*/ pico_connect_target == null) return false;
+        Logger.LogInformation("Found PICO Connect service at IP {}.", pico_connect_target);
+
+        TcpListener listen = new TcpListener(pico_connect_target);
+        listen.Start();
+        Byte[] bytes;
+        try
+        {
+            while (true)
+            {
+                TcpClient client = listen.AcceptTcpClient();
+                NetworkStream ns = client.GetStream();
+                if (client.ReceiveBufferSize > 0)
+                {
+                    bytes = new byte[client.ReceiveBufferSize];
+                    ns.Read(bytes, 0, client.ReceiveBufferSize);
+                    string msg = Encoding.ASCII.GetString(bytes); //the message incoming
+                    Logger.LogInformation(msg);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning("{exception}", ex);
+            return false;
+        }
+
+        return true;
     }
 
     public unsafe float* GetBlendShapes()

@@ -46,9 +46,9 @@ public sealed class Pico4SAFTExtTrackingModule : ExtTrackingModule, IDisposable
         }
 
         Logger.LogInformation("Initializing PICO Connect data stream.");
-        if (!this.connector.Connect())
+        if (!this.connector!.Connect())
         {
-            Logger.LogWarning("Module failed to establish a connection.");
+            Logger.LogWarning("Module failed to establish a connection. You may have to launch VRCFaceTracking with admin privileges.");
             Teardown(); // closes client and any other objects
             return (false, false);
         }
@@ -181,7 +181,7 @@ public sealed class Pico4SAFTExtTrackingModule : ExtTrackingModule, IDisposable
         {
             unsafe
             {
-                float* pxrShape = this.connector.GetBlendShapes();
+                float* pxrShape = this.connector!.GetBlendShapes();
                 if (pxrShape != null)
                 {
                     if (this.logger != null)
