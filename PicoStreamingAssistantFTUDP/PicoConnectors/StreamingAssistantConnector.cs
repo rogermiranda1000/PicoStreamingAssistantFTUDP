@@ -15,6 +15,7 @@ public sealed class StreamingAssistantConnector : PicoConnector
 {
     private const string IP_ADDRESS = "127.0.0.1";
     private const int PORT_NUMBER = 29765;
+    private const string PROCESS_NAME = "pico_et_ft_bt_bridge.exe";
 
     private static readonly unsafe int pxrHeaderSize = sizeof(TrackingDataHeader);
     private readonly int PacketIndex = pxrHeaderSize;
@@ -77,7 +78,7 @@ public sealed class StreamingAssistantConnector : PicoConnector
                         "/f",
                         "/t",
                         "/im",
-                        "pico_et_ft_bt_bridge.exe"
+                        PROCESS_NAME
                     },
                     CreateNoWindow = true
                 }

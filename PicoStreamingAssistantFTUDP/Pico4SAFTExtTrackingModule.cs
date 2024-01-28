@@ -1,5 +1,6 @@
 ﻿using System.Net;
 using System.Net.Sockets;
+using System.Security.Principal;
 
 using Microsoft.Extensions.Logging;
 using Pico4SAFTExtTrackingModule.PicoConnectors;
@@ -48,7 +49,8 @@ public sealed class Pico4SAFTExtTrackingModule : ExtTrackingModule, IDisposable
         Logger.LogInformation("Initializing PICO Connect data stream.");
         if (!this.connector!.Connect())
         {
-            Logger.LogWarning("Module failed to establish a connection. You may have to launch VRCFaceTracking with admin privileges.");
+            bool IsElevated = new WindowsPrincipal(WindowsIdentity.GetCurrent()).IsInRole(WindowsBuiltInRole.Administrator);
+            Logger.LogWarning("Module failed to establish a connection.{}", (IsElevated ? "" : " You may have to launch VRCFaceTracking with admin privileges."));
             Teardown(); // closes client and any other objects
             return (false, false);
         }
@@ -212,7 +214,7 @@ public sealed class Pico4SAFTExtTrackingModule : ExtTrackingModule, IDisposable
         catch (SocketException ex) when (ex.ErrorCode is 10060)
         {
             if (!StreamerValidity())
-                Logger.LogInformation("Streaming Assistant or PICO Connect is currently not running. Please ensure Streaming Assistant or PICO Connect is running to send tracking data.");
+                Logger.LogInformation("Streaming Assistant, Business Streaming or PICO Connect is currently not running. Please ensure it is running to send tracking data.");
             Logger.LogDebug("Data was not sent within the timeout. {msg}", ex.Message);
         }
         catch (Exception ex)

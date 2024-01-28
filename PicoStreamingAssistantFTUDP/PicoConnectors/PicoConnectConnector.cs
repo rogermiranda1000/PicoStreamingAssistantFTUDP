@@ -12,7 +12,13 @@ namespace Pico4SAFTExtTrackingModule.PicoConnectors;
  **/
 public sealed class PicoConnectConnector : PicoConnector
 {
+    private const string IP_ADDRESS = "127.0.0.1";
+    private const string PROCESS_NAME = "ps_server.exe";
+
     private ILogger Logger;
+
+    private TcpClient? client;
+    private IPEndPoint? endPoint;
 
     public PicoConnectConnector(ILogger Logger)
     {
@@ -21,7 +27,6 @@ public sealed class PicoConnectConnector : PicoConnector
 
     public bool Connect()
     {
-        //Nullable<int> pico_connect_pid = null;
         IPEndPoint? pico_connect_target = null;
 
         foreach (TcpRow tcpRow in ManagedIpHelper.GetExtendedTcpTable(true))
@@ -31,10 +36,9 @@ public sealed class PicoConnectConnector : PicoConnector
             try
             {
                 Process process = Process.GetProcessById(tcpRow.ProcessId);
-                if (process.MainModule != null && process.MainModule.FileName.EndsWith("Streaming Service\\ps_server.exe"))
+                if (process.MainModule != null && process.MainModule.FileName.EndsWith(PROCESS_NAME))
                 {
                     // found
-                    //pico_connect_pid = tcpRow.ProcessId;
                     pico_connect_target = tcpRow.LocalEndPoint;
                     break;
                 }
@@ -46,30 +50,63 @@ public sealed class PicoConnectConnector : PicoConnector
         }
 
         // succeed?
-        if (/*!pico_connect_pid.HasValue ||*/ pico_connect_target == null) return false;
+        if (pico_connect_target == null)
+        {
+            Logger.LogWarning("Couldn't find PICO Connect process.");
+            return false;
+        }
         Logger.LogInformation("Found PICO Connect service at IP {}.", pico_connect_target);
 
-        TcpListener listen = new TcpListener(pico_connect_target);
-        listen.Start();
-        Byte[] bytes;
+        /*int retry = 0;
+
+    ReInitialize:*/
         try
         {
+            endPoint = new IPEndPoint(IPAddress.Parse(IP_ADDRESS), pico_connect_target.Port);
+            client = new TcpClient(endPoint);
+
+            Byte[] bytes;
             while (true)
             {
-                TcpClient client = listen.AcceptTcpClient();
-                NetworkStream ns = client.GetStream();
+                NetworkStream stream = client.GetStream();
                 if (client.ReceiveBufferSize > 0)
                 {
                     bytes = new byte[client.ReceiveBufferSize];
-                    ns.Read(bytes, 0, client.ReceiveBufferSize);
+                    stream.Read(bytes, 0, client.ReceiveBufferSize);
                     string msg = Encoding.ASCII.GetString(bytes); //the message incoming
                     Logger.LogInformation(msg);
                 }
             }
         }
-        catch (Exception ex)
+        /*catch (SocketException ex) when (ex.ErrorCode is 10048)
         {
-            Logger.LogWarning("{exception}", ex);
+            if (retry >= 3) return false;
+            retry++;
+            // Magic
+            // Close the pico_et_ft_bt_bridge.exe process and reinitialize it.
+            // It will listen to UDP port 29763 before pico_et_ft_bt_bridge.exe runs.
+            // Note: exclusively to simplify older versions of the FT bridge,
+            // the bridge now works without any need for process killing.
+            Process proc = new()
+            {
+                StartInfo = {
+                    FileName = "taskkill.exe",
+                    ArgumentList = {
+                        "/f",
+                        "/t",
+                        "/im",
+                        PROCESS_NAME
+                    },
+                    CreateNoWindow = true
+                }
+            };
+            proc.Start();
+            proc.WaitForExit();
+            goto ReInitialize;
+        }*/
+        catch (Exception e)
+        {
+            Logger.LogWarning("{exception}", e);
             return false;
         }
 
@@ -88,6 +125,8 @@ public sealed class PicoConnectConnector : PicoConnector
 
     void PicoConnector.Teardown()
     {
-        
+        if (client is not null) client.Client.Blocking = false;
+        Logger.LogInformation("Disposing of PICO Connect TCP Client.");
+        client?.Dispose();
     }
 }
