@@ -1,9 +1,8 @@
 ﻿using Microsoft.Extensions.Logging;
-using System.Collections.Generic;
+using PcapDotNet.Core;
+using PcapDotNet.Packets;
 using System.Diagnostics;
 using System.Net;
-using System.Net.Sockets;
-using System.Text;
 
 namespace Pico4SAFTExtTrackingModule.PicoConnectors;
 
@@ -17,15 +16,12 @@ public sealed class PicoConnectConnector : PicoConnector
 
     private ILogger Logger;
 
-    private TcpClient? client;
-    private IPEndPoint? endPoint;
-
     public PicoConnectConnector(ILogger Logger)
     {
         this.Logger = Logger;
     }
 
-    public bool Connect()
+    private static IPEndPoint? GetPicoConnectLocalIp()
     {
         IPEndPoint? pico_connect_target = null;
 
@@ -42,12 +38,76 @@ public sealed class PicoConnectConnector : PicoConnector
                     pico_connect_target = tcpRow.LocalEndPoint;
                     break;
                 }
-            } catch (Exception ex)
+            }
+            catch (Exception ex)
             {
                 // way too much false-negatives
                 //Logger.LogWarning("{exception}", ex);
             }
         }
+
+        return pico_connect_target;
+    }
+
+    private /*static*/ PacketDevice? GetPicoConnectDevice()
+    {
+        IPEndPoint? picoEndpoint = GetPicoConnectLocalIp();
+        if (picoEndpoint == null) return null; // couldn't find PICO Connect address
+
+        // Retrieve the device list from the local machine
+        IList<LivePacketDevice> allDevices = LivePacketDevice.AllLocalMachine;
+        if (allDevices.Count == 0) return null; // couldn't find any interface
+
+        // Print the list
+        for (int i = 0; i < allDevices.Count; ++i)
+        {
+            LivePacketDevice device = allDevices[i];
+            Logger.LogInformation((i + 1) + ". " + device.Name);
+            if (device.Description != null)
+                Logger.LogInformation(" (" + device.Description + ")");
+            else
+                Logger.LogInformation(" (No description available)");
+        }
+
+        Logger.LogInformation("! checking for {}:{}", picoEndpoint.Address.ToString(), picoEndpoint.Port.ToString());
+
+        Nullable<int> picoIndex = null;
+        for (int i = 0; i < allDevices.Count && !picoIndex.HasValue; ++i)
+        {
+            PacketDevice current = allDevices[picoIndex.Value];
+            for (int n = 0; n < current.Addresses.Count; ++n)
+            {
+                Logger.LogInformation("> {} -> {}", current.Addresses[n].Address.ToString(), current.Addresses[n].Destination.ToString());
+            }
+        }
+
+        return allDevices[picoIndex.Value];
+    }
+
+    public bool Connect()
+    {
+        PacketDevice? selectedDevice = GetPicoConnectDevice();
+        if (selectedDevice == null)
+        {
+            Logger.LogWarning("Couldn't find PICO Connect connection. Are you sure you have the app launched and you have WinPcap installed?");
+            return false;
+        }
+
+        // Open the device
+        using (PacketCommunicator communicator =
+            selectedDevice.Open(65536,                                  // portion of the packet to capture
+                                                                        // 65536 guarantees that the whole packet will be captured on all the link layers
+                                PacketDeviceOpenAttributes.Promiscuous, // promiscuous mode
+                                1000))                                  // read timeout
+        {
+            Logger.LogInformation("Listening on " + selectedDevice.Description + "...");
+
+            // start the capture
+            communicator.ReceivePackets(0, PacketHandler);
+        }
+
+
+        /*IPEndPoint? pico_connect_target = GetPicoConnectLocalIp();
 
         // succeed?
         if (pico_connect_target == null)
@@ -57,60 +117,16 @@ public sealed class PicoConnectConnector : PicoConnector
         }
         Logger.LogInformation("Found PICO Connect service at IP {}.", pico_connect_target);
 
-        /*int retry = 0;
-
-    ReInitialize:*/
-        try
-        {
-            endPoint = new IPEndPoint(IPAddress.Parse(IP_ADDRESS), pico_connect_target.Port);
-            client = new TcpClient(endPoint);
-
-            Byte[] bytes;
-            while (true)
-            {
-                NetworkStream stream = client.GetStream();
-                if (client.ReceiveBufferSize > 0)
-                {
-                    bytes = new byte[client.ReceiveBufferSize];
-                    stream.Read(bytes, 0, client.ReceiveBufferSize);
-                    string msg = Encoding.ASCII.GetString(bytes); //the message incoming
-                    Logger.LogInformation(msg);
-                }
-            }
-        }
-        /*catch (SocketException ex) when (ex.ErrorCode is 10048)
-        {
-            if (retry >= 3) return false;
-            retry++;
-            // Magic
-            // Close the pico_et_ft_bt_bridge.exe process and reinitialize it.
-            // It will listen to UDP port 29763 before pico_et_ft_bt_bridge.exe runs.
-            // Note: exclusively to simplify older versions of the FT bridge,
-            // the bridge now works without any need for process killing.
-            Process proc = new()
-            {
-                StartInfo = {
-                    FileName = "taskkill.exe",
-                    ArgumentList = {
-                        "/f",
-                        "/t",
-                        "/im",
-                        PROCESS_NAME
-                    },
-                    CreateNoWindow = true
-                }
-            };
-            proc.Start();
-            proc.WaitForExit();
-            goto ReInitialize;
-        }*/
-        catch (Exception e)
-        {
-            Logger.LogWarning("{exception}", e);
-            return false;
-        }
+        endPoint = new IPEndPoint(IPAddress.Parse(IP_ADDRESS), pico_connect_target.Port);*/
+        
 
         return true;
+    }
+
+    // Callback function invoked by Pcap.Net for every incoming packet
+    private static void PacketHandler(Packet packet)
+    {
+        Console.WriteLine(packet.Timestamp.ToString("yyyy-MM-dd hh:mm:ss.fff") + " length:" + packet.Length);
     }
 
     public unsafe float* GetBlendShapes()
@@ -123,10 +139,5 @@ public sealed class PicoConnectConnector : PicoConnector
         return "PICO Connect";
     }
 
-    void PicoConnector.Teardown()
-    {
-        if (client is not null) client.Client.Blocking = false;
-        Logger.LogInformation("Disposing of PICO Connect TCP Client.");
-        client?.Dispose();
-    }
+    void PicoConnector.Teardown() { }
 }

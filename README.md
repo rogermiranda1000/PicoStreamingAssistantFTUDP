@@ -6,13 +6,14 @@
 
 ## Setup **Pico 4 Pro Module** for **VRCFaceTracking**.
 
-1. (TBP) Download the latest Streaming Assistant capable of OSC tracking *current*
+1. Download the latest Streaming Assistant, Business Streaming, or PICO Connect
 2. Download and install the Pico 4 Pro Module.
 * [Latest Release](https://github.com/regzo2/PicoStreamingAssistantFTUDP/releases)
   * Installer
     * (TBD) Simply install **Pico 4 Pro Module** from VRCFaceTracking's **Module Registry** tab.
   * Manual
     * Include the supplied **.dll** release in `%appdata%/VRCFaceTracking/CustomLibs`. 
+3. (If you're using PICO Connect) Install [WinPcap 4.1.3](https://www.winpcap.org/install/bin/WinPcap_4_1_3.exe)
 **VRCFaceTracking v5.0.0.0 is required to use Pico 4 Pro Module.**
 
 3. Launch VRCFaceTracking!
@@ -23,8 +24,8 @@
 
 Make sure that your Pico 4 device is capable of using face tracking. 
 At this time only the Pico 4 Pro is capable of being used with this module.
-Make sure you have the latest Streaming Assistant capable of sending 
-face tracking data.
+Make sure you have the latest streaming app capable of sending face tracking data.
+(If you're using PICO Connect) Make sure you have WinPcap 4.1.3
 
   
 ## Licenses / Distribution
@@ -34,6 +35,7 @@ face tracking data.
 ## Compiling this module
 - Use [Visual Studio 2022](https://visualstudio.microsoft.com/es/vs/)
 - Clone [VRCFaceTracking](https://github.com/benaclejames/VRCFaceTracking) in the same folder as this project
+- Download [Pcap.Net v1.0.4 Binaries](https://github.com/PcapDotNet/Pcap.Net/releases/tag/v1.0.4) and unzip `PcapDotNet.Binaries.1.0.4` at the base project path
 - Compile VRCFaceTracking.Core
 
 You'll find the module in `PicoStreamingAssistantFTUDP\PicoStreamingAssistantFTUDP\bin\Debug\net7.0\Pico4SAFTExtTrackingModule.dll`.
