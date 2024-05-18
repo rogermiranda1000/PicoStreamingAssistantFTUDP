@@ -1,5 +1,27 @@
-
+# Ignore compiled .dll
 artifacts/*
+
+# Ignore test results
+TestResults/*
+
+
+
+## Ignore Visual Studio code files
+##
+## Get latest from https://github.com/github/gitignore/blob/main/Global/VisualStudioCode.gitignore
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/*.code-snippets
+
+# Local History for Visual Studio Code
+.history/
+
+# Built Visual Studio Code Extensions
+*.vsix
+
 
 
 ## Ignore Visual Studio temporary files, build results, and
